@@ -23,7 +23,7 @@ import java.util.concurrent.Callable;
 import static application.constant.MessageConstants.NOT_OK;
 import static application.constant.MessageConstants.OK;
 
-public class AgentServer implements Callable {
+public class AgentServer extends Thread {
 
     private final OutputWriter outputWriter;
     private final Agent agent;
@@ -40,14 +40,14 @@ public class AgentServer implements Callable {
     }
 
     @Override
-    public Object call() {
-        while (agent.isNotArrested()) {
+    public void run() {
+        while (!isInterrupted()) {
             ServerSocket serverSocket = openServerSocket();
             try {
                 acceptRequest(serverSocket);
             } catch (AllSecretsExposedException e) {
-                agent.setArrested();
                 outputWriter.print("Az ügynök le lett tartóztatva, minden általa ismert titkot elárult.");
+                interrupt();
             } finally {
                 try {
                     serverSocket.close();
@@ -55,8 +55,9 @@ public class AgentServer implements Callable {
                 }
             }
         }
-        return null;
+        outputWriter.print("Ügynök szerver leáll.");
     }
+
 
     private void acceptRequest(ServerSocket serverSocket) throws AllSecretsExposedException {
         try {

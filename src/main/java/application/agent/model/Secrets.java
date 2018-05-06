@@ -4,6 +4,7 @@ import application.util.RandomUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Secrets {
 
@@ -42,4 +43,9 @@ public class Secrets {
     public boolean isAllSecretsExposed() {
         return secrets.stream().allMatch(Secret::isExposed);
     }
+
+    public List<String> getAllSecrets() {
+        return secrets.stream().map(Secret::getSecret).collect(Collectors.toList());
+    }
 }
+

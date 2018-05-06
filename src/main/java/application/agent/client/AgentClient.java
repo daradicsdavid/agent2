@@ -1,6 +1,7 @@
 package application.agent.client;
 
 import application.AgentConfiguration;
+import application.Application;
 import application.OutputWriter;
 import application.agent.model.Agency;
 import application.agent.model.Agent;
@@ -20,8 +21,9 @@ import java.util.concurrent.*;
 import static application.constant.MessageConstants.NOT_OK;
 import static application.constant.MessageConstants.OK;
 
-public class AgentClient implements Callable {
+public class AgentClient extends Thread {
     private final OutputWriter outputWriter;
+    private final Application application;
     private final Agent agent;
     private final AgentConfiguration agentConfiguration;
     private final AgentTimer agentTimer;
@@ -29,10 +31,11 @@ public class AgentClient implements Callable {
     private final KnownAgents knownAgents;
     private final List<String> otherAgencySecrets;
 
-    public AgentClient(Agent agent, AgentConfiguration agentConfiguration, UUID agentIdentity) {
+    public AgentClient(Agent agent, AgentConfiguration agentConfiguration, UUID agentIdentity, Application application) {
         this.agent = agent;
         this.agentIdentity = agentIdentity;
         this.agentConfiguration = agentConfiguration;
+        this.application = application;
         this.agentTimer = new AgentTimer(agentConfiguration.getLowerBoundaryOfWait(), agentConfiguration.getUpperBoundaryOfWait());
         knownAgents = new KnownAgents(agentConfiguration);
         outputWriter = new OutputWriter(agent.getName() + " AgentClient");
@@ -41,18 +44,28 @@ public class AgentClient implements Callable {
 
 
     @Override
-    public Object call() {
+    public void run() {
         agentTimer.startTimer();
-        while (agent.isNotArrested()) {
+        while (!isInterrupted()) {
             if (agentTimer.isTimeElapsed()) {
                 communicateWithServer();
                 agentTimer.resetTimer();
+            } else {
+                try {
+                    sleep(50);
+                } catch (InterruptedException e) {
+                    break;
+                }
             }
         }
-        return null;
+        outputWriter.print("Ügynök kliens leáll.");
     }
 
     private void communicateWithServer() {
+        if (isInterrupted()) {
+            return;
+        }
+
         int port = RandomUtils.generatePort(agentConfiguration.getLowerPortBoundary(), agentConfiguration.getUpperPortBoundary());
         try (Socket socket = new Socket("localhost", port); Scanner in = new Scanner(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
@@ -129,13 +142,14 @@ public class AgentClient implements Callable {
 
         int randomOtherAgencyAgentNumber = sendAgentNumberAnswer(out, alias);
 
+        KnownAgent knownAgent = knownAgents.getKnownAgent(alias);
         try {
             String response = ThreadUtils.receiveResponseWithTimeOut(in, 500);
-            knownAgents.getKnownAgent(alias).setNumber(randomOtherAgencyAgentNumber);
-            addOtherAgencySecret(response);
+            knownAgent.setNumber(randomOtherAgencyAgentNumber);
+            addOtherAgencySecret(knownAgent, response);
             outputWriter.print("A kliens kitalálta a szerver ügynök számát! Kapott titok:%s", response);
         } catch (TimeoutException e) {
-            knownAgents.getKnownAgent(alias).addWrongNumber(randomOtherAgencyAgentNumber);
+            knownAgent.addWrongNumber(randomOtherAgencyAgentNumber);
             outputWriter.print("A kliens nem kitalálta a szerver ügynök számát!");
             throw e;
         }
@@ -194,7 +208,8 @@ public class AgentClient implements Callable {
         return alias;
     }
 
-    public void addOtherAgencySecret(String response) {
+    public void addOtherAgencySecret(KnownAgent knownAgent, String response) {
         otherAgencySecrets.add(response);
+        application.notifyAboutAcquiredSecretsOfOtherAgency(agent.getName(), knownAgent.getAgency(), otherAgencySecrets);
     }
 }

@@ -14,7 +14,6 @@ public class Agent {
     private final Agency agency;
     private final List<String> aliases;
     private final Secrets secrets;
-    private volatile boolean arrested = false;
 
 
 
@@ -35,14 +34,6 @@ public class Agent {
                 ", aliases=" + aliases +
                 ", secrets=" + secrets +
                 '}';
-    }
-
-    public boolean isNotArrested() {
-        return !arrested;
-    }
-
-    public void setArrested() {
-        arrested = true;
     }
 
     public int getNumber() {

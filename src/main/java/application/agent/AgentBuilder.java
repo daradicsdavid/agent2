@@ -18,7 +18,8 @@ public class AgentBuilder {
     private final AgentReader agentReader = new AgentReader();
     private final AgentConfiguration agentConfiguration;
     private final OutputWriter outputWriter = new OutputWriter("AgentBuilder");
-
+    private final List<String> firstAgencySecrets = new ArrayList<>();
+    private final List<String> secondAgencySecrets = new ArrayList<>();
 
     public AgentBuilder(AgentConfiguration agentConfiguration) {
         this.agentConfiguration = agentConfiguration;
@@ -28,10 +29,14 @@ public class AgentBuilder {
         outputWriter.print("Ügynökök beolvasása!");
         List<Agent> agents = new ArrayList<>();
         for (int i = 1; i <= agentConfiguration.getNumberOfFirstAgencyMembers(); i++) {
-            agents.add(createAgent(Agency.FIRST, i));
+            Agent agent = createAgent(Agency.FIRST, i);
+            firstAgencySecrets.addAll(agent.getSecrets().getAllSecrets());
+            agents.add(agent);
         }
         for (int i = 1; i <= agentConfiguration.getNumberOfSecondAgencyMembers(); i++) {
-            agents.add(createAgent(Agency.SECOND, i));
+            Agent agent = createAgent(Agency.SECOND, i);
+            secondAgencySecrets.addAll(agent.getSecrets().getAllSecrets());
+            agents.add(agent);
         }
         outputWriter.print("Ügynökök sikeresen beolvasva!");
         return agents;
@@ -39,12 +44,18 @@ public class AgentBuilder {
 
     private Agent createAgent(Agency agency, int agentNumber) {
         AgentFileData agentFileData = agentReader.readAgentDataFromFile(agency, agentNumber);
-        Agent agent = new Agent(agentConfiguration,agentFileData, agency, agentNumber);
+        Agent agent = new Agent(agentConfiguration, agentFileData, agency, agentNumber);
 
         outputWriter.print("Ügynök: %s", agent);
 
         return agent;
     }
 
+    public List<String> getFirstAgencySecrets() {
+        return firstAgencySecrets;
+    }
 
+    public List<String> getSecondAgencySecrets() {
+        return secondAgencySecrets;
+    }
 }

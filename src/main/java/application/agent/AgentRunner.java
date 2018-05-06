@@ -1,6 +1,7 @@
 package application.agent;
 
 import application.AgentConfiguration;
+import application.Application;
 import application.OutputWriter;
 import application.agent.client.AgentClient;
 import application.agent.model.Agent;
@@ -15,33 +16,48 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-public class AgentRunner {
+public class AgentRunner extends Thread {
 
     private final AgentClient agentClient;
     private final AgentServer agentServer;
     private Agent agent;
-    private ExecutorService agentExecutor;
+    private final Application application;
     private final OutputWriter outputWriter;
+    private volatile boolean running = true;
 
-    public AgentRunner(Agent agent, AgentConfiguration agentConfiguration) {
+    public AgentRunner(Agent agent, AgentConfiguration agentConfiguration, Application application) {
         this.agent = agent;
+        this.application = application;
         UUID agentIdentifier = UUID.randomUUID();
         agentServer = new AgentServer(agent, agentConfiguration, agentIdentifier);
-        agentClient = new AgentClient(agent, agentConfiguration, agentIdentifier);
+        agentClient = new AgentClient(agent, agentConfiguration, agentIdentifier, application);
         outputWriter = new OutputWriter(agent.getName() + " OutputWriter");
     }
 
 
-    public void start() {
+    @Override
+    public void run() {
         outputWriter.print("Agent indul.", agent.getAgency(), String.valueOf(agent.getNumber()));
-        agentExecutor = Executors.newFixedThreadPool(2);
-        List<Callable<Object>> tasks = new ArrayList<>();
-        tasks.add(agentServer);
-        tasks.add(agentClient);
+
+        agentServer.start();
+        agentClient.start();
+
         try {
-            agentExecutor.invokeAll(tasks);
-            outputWriter.print("Az %s-%s ügynök leállt mivel le lett tartóztatva.", agent.getAgency(), agent.getNumber());
+            agentServer.join();
+            agentClient.interrupt();
         } catch (InterruptedException e) {
+            agentServer.interrupt();
+            agentClient.interrupt();
         }
+        running = false;
+        application.notifyAboutStopWhenArrested(agent.getAgency());
+    }
+
+    public Agent getAgent() {
+        return agent;
+    }
+
+    public boolean isRunning() {
+        return running;
     }
 }
