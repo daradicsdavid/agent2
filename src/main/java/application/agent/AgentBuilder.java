@@ -7,9 +7,9 @@ import application.agent.model.Agent;
 import application.file.AgentFileData;
 import application.file.AgentReader;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class AgentBuilder {
@@ -18,44 +18,48 @@ public class AgentBuilder {
     private final AgentReader agentReader = new AgentReader();
     private final AgentConfiguration agentConfiguration;
     private final OutputWriter outputWriter = new OutputWriter("AgentBuilder");
-    private final List<String> firstAgencySecrets = new ArrayList<>();
-    private final List<String> secondAgencySecrets = new ArrayList<>();
+    private final Map<Agency, List<String>> agencySecrets = new EnumMap<>(Agency.class);
 
     public AgentBuilder(AgentConfiguration agentConfiguration) {
         this.agentConfiguration = agentConfiguration;
+        agencySecrets.put(Agency.FIRST, new ArrayList<>());
+        agencySecrets.put(Agency.SECOND, new ArrayList<>());
     }
 
     public List<Agent> build() {
         outputWriter.print("Ügynökök beolvasása!");
         List<Agent> agents = new ArrayList<>();
-        for (int i = 1; i <= agentConfiguration.getNumberOfFirstAgencyMembers(); i++) {
-            Agent agent = createAgent(Agency.FIRST, i);
-            firstAgencySecrets.addAll(agent.getSecrets().getAllSecrets());
-            agents.add(agent);
-        }
-        for (int i = 1; i <= agentConfiguration.getNumberOfSecondAgencyMembers(); i++) {
-            Agent agent = createAgent(Agency.SECOND, i);
-            secondAgencySecrets.addAll(agent.getSecrets().getAllSecrets());
-            agents.add(agent);
-        }
+        agents.addAll(buildAgentsForAgency(Agency.FIRST));
+        agents.addAll(buildAgentsForAgency(Agency.SECOND));
+
         outputWriter.print("Ügynökök sikeresen beolvasva!");
         return agents;
     }
 
+    private List<Agent> buildAgentsForAgency(Agency agency) {
+        return IntStream.rangeClosed(1, agentConfiguration.getNumberOfFirstAgencyMembers()).mapToObj(iterator -> buildAgentForAgency(agency, iterator)).collect(Collectors.toList());
+    }
+
+    private Agent buildAgentForAgency(Agency agency, int agentNumber) {
+        Agent agent = createAgent(agency, agentNumber);
+        addSecrets(agency, agent.getSecretRepository().getAllSecrets());
+        return agent;
+    }
+
+    private void addSecrets(Agency agency, List<String> allSecrets) {
+        agencySecrets.get(agency).addAll(allSecrets);
+    }
+
     private Agent createAgent(Agency agency, int agentNumber) {
         AgentFileData agentFileData = agentReader.readAgentDataFromFile(agency, agentNumber);
-        Agent agent = new Agent(agentConfiguration, agentFileData, agency, agentNumber);
+        Agent agent = new Agent(agentFileData, agency, agentNumber);
 
         outputWriter.print("Ügynök: %s", agent);
 
         return agent;
     }
 
-    public List<String> getFirstAgencySecrets() {
-        return firstAgencySecrets;
-    }
-
-    public List<String> getSecondAgencySecrets() {
-        return secondAgencySecrets;
+    public Map<Agency, List<String>> getAgencySecrets() {
+        return agencySecrets;
     }
 }

@@ -6,7 +6,7 @@ public class AgentFileData {
     private final List<String> aliases;
     private final String secret;
 
-    public AgentFileData(List<String> aliases, String secret) {
+    AgentFileData(List<String> aliases, String secret) {
         this.aliases = aliases;
         this.secret = secret;
     }

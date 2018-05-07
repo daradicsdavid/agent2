@@ -6,14 +6,7 @@ import application.OutputWriter;
 import application.agent.client.AgentClient;
 import application.agent.model.Agent;
 import application.agent.server.AgentServer;
-
-
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 
 public class AgentRunner extends Thread {
@@ -59,5 +52,9 @@ public class AgentRunner extends Thread {
 
     public boolean isRunning() {
         return running;
+    }
+
+    public AgentClient getAgentClient() {
+        return agentClient;
     }
 }

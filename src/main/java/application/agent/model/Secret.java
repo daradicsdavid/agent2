@@ -1,30 +1,30 @@
 package application.agent.model;
 
 public class Secret {
-    private final String secret;
-    private boolean exposed;
+    private final String secretWord;
+    private boolean exposed = false;
 
-    public Secret(String secret) {
-        this.secret = secret;
+    Secret(String secretWord) {
+        this.secretWord = secretWord;
     }
 
-    public String getSecret() {
-        return secret;
+    public String getSecretWord() {
+        return secretWord;
     }
 
     @Override
     public String toString() {
         return "Secret{" +
-                "secret='" + secret + '\'' +
+                "secretWord='" + secretWord + '\'' +
                 ", exposed=" + exposed +
                 '}';
     }
 
-    public boolean isExposed() {
+    boolean isExposed() {
         return exposed;
     }
 
-    public void setExposed(boolean exposed) {
-        this.exposed = exposed;
+    void setExposed() {
+        this.exposed = true;
     }
 }

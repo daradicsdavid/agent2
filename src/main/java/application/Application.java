@@ -4,6 +4,7 @@ import application.agent.model.Agency;
 import application.agent.model.Agent;
 import application.agent.AgentBuilder;
 import application.agent.AgentRunner;
+import application.agent.model.SecretRepository;
 import application.util.NumberUtils;
 
 import java.util.List;
@@ -11,8 +12,9 @@ import java.util.stream.Collectors;
 
 import static application.agent.model.Agency.FIRST;
 import static application.agent.model.Agency.SECOND;
+import static java.lang.Thread.sleep;
 
-public class Application extends Thread {
+public class Application {
 
     private final OutputWriter outputWriter = new OutputWriter("Application");
     private final AgentConfiguration agentConfiguration;
@@ -39,27 +41,30 @@ public class Application extends Thread {
         buildAgents();
     }
 
-    @Override
-    public void run() {
+    private void start() throws InterruptedException {
         agents.forEach(AgentRunner::start);
 
 
-        agents.forEach(agentRunner -> {
-            try {
-                agentRunner.join();
-            } catch (InterruptedException ignored) {
-
-            }
-        });
-        try {
-            sleep(500);
-        } catch (InterruptedException e) {
-
+        for (AgentRunner agent : agents) {
+            agent.join();
         }
-        outputWriter.print("A játék befejeződött.A(z) %s ügynökség minden tagját letartóztatták." +
-                "A(z) %s ügynökség nyert.", losingAgency, FIRST.equals(losingAgency) ? SECOND : FIRST);
+
+        sleep(1000);
+        outputWriter.print("===========================================================================================");
+        printAgents();
+        outputWriter.print("A játék befejeződött.A(z) %s ügynökség nyert.", FIRST.equals(losingAgency) ? SECOND : FIRST);
 
         System.exit(0);
+    }
+
+    private void printAgents() {
+        for (AgentRunner agent : agents) {
+            outputWriter.print("Agent %s", agent.getAgent().getName());
+            SecretRepository allSecretRepository = agent.getAgent().getSecretRepository();
+            outputWriter.print("Megszerzett saját ügynökség üzenetek: %s", allSecretRepository);
+            List<String> otherAgencySecrets = agent.getAgentClient().getOtherAgencySecrets();
+            outputWriter.print("Megszerzett másik ügynökség üzenetek: %s", otherAgencySecrets);
+        }
     }
 
     private void buildAgents() {
@@ -81,34 +86,26 @@ public class Application extends Thread {
             boolean allAgentsOfAgencyArrested = agents.stream().noneMatch(agentRunner ->
                     agentRunner.getAgent().getAgency().equals(agency) && agentRunner.isRunning());
             if (allAgentsOfAgencyArrested) {
+                outputWriter.print("%s ügynökség minden tagját letartóztatták!", agency);
                 stopGame(agency);
             }
-            running = false;
         }
     }
 
     public synchronized void notifyAboutAcquiredSecretsOfOtherAgency(String name, Agency agency, List<String> secrets) {
         if (running) {
-            switch (agency) {
-                case FIRST:
-                    if (agentBuilder.getFirstAgencySecrets().containsAll(secrets)) {
-                        outputWriter.print("%s nevű ügynök megszerezte a másik ügynökség összes titkát!", name);
-                        stopGame(agency);
-                    }
-                    break;
-                case SECOND:
-                    if (agentBuilder.getSecondAgencySecrets().containsAll(secrets)) {
-                        outputWriter.print("%s nevű ügynök megszerezte a másik ügynökség összes titkát!", name);
-                        stopGame(agency);
-                    }
-                    break;
+            List<String> agencySecrets = agentBuilder.getAgencySecrets().get(agency);
+            if (secrets.containsAll(agencySecrets)) {
+                outputWriter.print("%s nevű ügynök megszerezte a másik ügynökség összes titkát!", name);
+                stopGame(agency);
             }
-            running = false;
+
         }
     }
 
     private void stopGame(Agency losingAgency) {
         agents.forEach(Thread::interrupt);
         this.losingAgency = losingAgency;
+        running = false;
     }
 }

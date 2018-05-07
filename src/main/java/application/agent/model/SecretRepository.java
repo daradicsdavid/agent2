@@ -6,28 +6,28 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class Secrets {
+public class SecretRepository {
 
     private final List<Secret> secrets;
 
-    public Secrets() {
+    SecretRepository() {
         secrets = new ArrayList<>();
     }
 
-    public void addSecret(String secretWord) {
-        if (secrets.stream().noneMatch(secret -> secret.getSecret().equals(secretWord))) {
+    void addSecret(String secretWord) {
+        if (secrets.stream().noneMatch(secret -> secret.getSecretWord().equals(secretWord))) {
             secrets.add(new Secret(secretWord));
         }
     }
 
     @Override
     public String toString() {
-        return "Secrets{" +
+        return "SecretRepository{" +
                 "secrets=" + secrets +
                 '}';
     }
 
-    public Secret getRandomSecret() {
+    Secret getRandomSecret() {
         return RandomUtils.getRandomElement(secrets);
     }
 
@@ -36,7 +36,7 @@ public class Secrets {
         while (randomSecret.isExposed()) {
             randomSecret = getRandomSecret();
         }
-        randomSecret.setExposed(true);
+        randomSecret.setExposed();
         return randomSecret;
     }
 
@@ -45,7 +45,7 @@ public class Secrets {
     }
 
     public List<String> getAllSecrets() {
-        return secrets.stream().map(Secret::getSecret).collect(Collectors.toList());
+        return secrets.stream().map(Secret::getSecretWord).collect(Collectors.toList());
     }
 }
 

@@ -2,27 +2,25 @@ package application.agent.client;
 
 import application.util.RandomUtils;
 
-import java.util.Random;
-
-public class AgentTimer {
+class AgentTimer {
     private final int lowerBoundaryOfWait;
     private final int upperBoundaryOfWait;
     private long nextTickTime;
 
-    public AgentTimer(int lowerBoundaryOfWait, int upperBoundaryOfWait) {
+    AgentTimer(int lowerBoundaryOfWait, int upperBoundaryOfWait) {
         this.lowerBoundaryOfWait = lowerBoundaryOfWait;
         this.upperBoundaryOfWait = upperBoundaryOfWait;
     }
 
-    public void startTimer() {
+    void startTimer() {
         calculateNextTickTime();
     }
 
-    public void resetTimer() {
+    void resetTimer() {
         calculateNextTickTime();
     }
 
-    public boolean isTimeElapsed() {
+    boolean isTimeElapsed() {
         return nextTickTime - System.currentTimeMillis() <= 0;
     }
 

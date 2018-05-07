@@ -3,6 +3,8 @@ package application;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import static java.lang.System.*;
+
 public class OutputWriter {
 
     private final String prefix;
@@ -13,13 +15,8 @@ public class OutputWriter {
     }
 
     public void print(String message, Object... args) {
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(getTime());
-        stringBuilder.append(" ");
-        stringBuilder.append(prefix);
-        stringBuilder.append(" ");
-        stringBuilder.append(message);
-        System.out.println(String.format(stringBuilder.toString(), args));
+        String stringBuilder = getTime() + " " + prefix + " " + message;
+        out.println(String.format(stringBuilder, args));
     }
 
     private String getTime() {
@@ -28,6 +25,6 @@ public class OutputWriter {
     }
 
     public static void staticPrint(String message, Object... args) {
-        System.out.println(String.format(message, args));
+        out.println(String.format(message, args));
     }
 }

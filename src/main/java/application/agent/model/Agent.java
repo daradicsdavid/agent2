@@ -1,29 +1,24 @@
 package application.agent.model;
 
-import application.AgentConfiguration;
 import application.file.AgentFileData;
 import application.util.RandomUtils;
-
 import java.util.*;
 
 
 public class Agent {
 
-    private final AgentConfiguration agentConfiguration;
     private final int number;
     private final Agency agency;
     private final List<String> aliases;
-    private final Secrets secrets;
+    private final SecretRepository secretRepository;
 
 
-
-    public Agent(AgentConfiguration agentConfiguration, AgentFileData agentFileData, Agency agency, int number) {
-        this.agentConfiguration = agentConfiguration;
+    public Agent(AgentFileData agentFileData, Agency agency, int number) {
         this.number = number;
         this.agency = agency;
         this.aliases = agentFileData.getAliases();
-        secrets = new Secrets();
-        secrets.addSecret(agentFileData.getSecret());
+        secretRepository = new SecretRepository();
+        secretRepository.addSecret(agentFileData.getSecret());
     }
 
     @Override
@@ -32,7 +27,7 @@ public class Agent {
                 "number=" + number +
                 ", agency=" + agency +
                 ", aliases=" + aliases +
-                ", secrets=" + secrets +
+                ", secretRepository=" + secretRepository +
                 '}';
     }
 
@@ -55,18 +50,16 @@ public class Agent {
 
 
     public Secret getRandomSecret() {
-        return secrets.getRandomSecret();
+        return secretRepository.getRandomSecret();
     }
 
     public void addSecret(String secretWord) {
-        secrets.addSecret(secretWord);
+        secretRepository.addSecret(secretWord);
     }
 
-    public Secrets getSecrets() {
-        return secrets;
+    public SecretRepository getSecretRepository() {
+        return secretRepository;
     }
-
-
 
 
 }

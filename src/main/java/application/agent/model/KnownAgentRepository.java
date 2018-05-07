@@ -8,13 +8,13 @@ import java.util.stream.Collectors;
 
 import static application.agent.model.Agency.FIRST;
 
-public class KnownAgents {
+public class KnownAgentRepository {
 
 
     private final Map<String, KnownAgent> knownAgents;
     private final AgentConfiguration agentConfiguration;
 
-    public KnownAgents(AgentConfiguration agentConfiguration) {
+    public KnownAgentRepository(AgentConfiguration agentConfiguration) {
         this.agentConfiguration = agentConfiguration;
         knownAgents = Collections.synchronizedMap(new HashMap<>());
     }

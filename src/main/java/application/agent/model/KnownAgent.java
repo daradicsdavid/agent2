@@ -8,7 +8,7 @@ public class KnownAgent {
     private Integer number;
     private List<Integer> wrongNumbers = new ArrayList<>();
 
-    public KnownAgent(Agency agency) {
+    KnownAgent(Agency agency) {
         this.agency = agency;
     }
 
@@ -16,7 +16,7 @@ public class KnownAgent {
         return agency;
     }
 
-    public Integer getNumber() {
+    Integer getNumber() {
         return number;
     }
 
@@ -24,7 +24,7 @@ public class KnownAgent {
         this.number = number;
     }
 
-    public List<Integer> getWrongNumbers() {
+    List<Integer> getWrongNumbers() {
         return wrongNumbers;
     }
 
