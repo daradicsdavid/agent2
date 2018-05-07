@@ -5,6 +5,9 @@ import java.util.concurrent.*;
 
 public class ThreadUtils {
 
+    private ThreadUtils() {
+    }
+
     public static String receiveResponseWithTimeOut(Scanner scanner, Integer timeOutInMillis) throws TimeoutException {
         FutureTask<String> readNextLine = new FutureTask<>(scanner::nextLine);
 
@@ -17,4 +20,9 @@ public class ThreadUtils {
             throw new TimeoutException();
         }
     }
+
+    public static String receiveResponseWithTimeOut(Scanner scanner) throws TimeoutException {
+        return receiveResponseWithTimeOut(scanner, 500);
+    }
+
 }

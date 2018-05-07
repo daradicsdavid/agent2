@@ -6,7 +6,7 @@ import application.OutputWriter;
 import application.agent.model.Agency;
 import application.agent.model.Agent;
 import application.agent.model.KnownAgent;
-import application.agent.model.KnownAgents;
+import application.agent.model.KnownAgentRepository;
 import application.exception.SamePortException;
 import application.util.RandomUtils;
 import application.util.ThreadUtils;
@@ -25,19 +25,17 @@ public class AgentClient extends Thread {
     private final OutputWriter outputWriter;
     private final Application application;
     private final Agent agent;
-    private final AgentConfiguration agentConfiguration;
     private final AgentTimer agentTimer;
     private final UUID agentIdentity;
-    private final KnownAgents knownAgents;
+    private final KnownAgentRepository knownAgentRepository;
     private final List<String> otherAgencySecrets;
 
     public AgentClient(Agent agent, AgentConfiguration agentConfiguration, UUID agentIdentity, Application application) {
         this.agent = agent;
         this.agentIdentity = agentIdentity;
-        this.agentConfiguration = agentConfiguration;
         this.application = application;
         this.agentTimer = new AgentTimer(agentConfiguration.getLowerBoundaryOfWait(), agentConfiguration.getUpperBoundaryOfWait());
-        knownAgents = new KnownAgents(agentConfiguration);
+        knownAgentRepository = new KnownAgentRepository(agentConfiguration);
         outputWriter = new OutputWriter(agent.getName() + " AgentClient");
         otherAgencySecrets = new ArrayList<>();
     }
@@ -50,12 +48,6 @@ public class AgentClient extends Thread {
             if (agentTimer.isTimeElapsed()) {
                 communicateWithServer();
                 agentTimer.resetTimer();
-            } else {
-                try {
-                    sleep(50);
-                } catch (InterruptedException e) {
-                    break;
-                }
             }
         }
         outputWriter.print("Ügynök kliens leáll.");
@@ -66,7 +58,7 @@ public class AgentClient extends Thread {
             return;
         }
 
-        int port = RandomUtils.generatePort(agentConfiguration.getLowerPortBoundary(), agentConfiguration.getUpperPortBoundary());
+        int port = RandomUtils.generatePort(AgentConfiguration.LOWER_PORT_BOUNDARY, AgentConfiguration.UPPER_PORT_BOUNDARY);
         try (Socket socket = new Socket("localhost", port); Scanner in = new Scanner(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
@@ -81,7 +73,7 @@ public class AgentClient extends Thread {
                 return;
             }
 
-            if (knownAgents.getKnownAgent(alias) == null) {
+            if (knownAgentRepository.getKnownAgent(alias) == null) {
                 saveAgentToKnownAgents(alias, agency);
             } else {
                 outputWriter.print("%s már ismert ügynök!", alias);
@@ -93,16 +85,16 @@ public class AgentClient extends Thread {
                 handleDifferentAgency(in, out, alias);
             }
 
-        } catch (IOException | TimeoutException | SamePortException e) {
+        } catch (IOException | TimeoutException | SamePortException ignored) {
+            outputWriter.print("Hiba történt, a kapcsolat a szerverrel bontásra került!");
         }
 
     }
 
-    private void verifyServer(Scanner in, PrintWriter out) throws SamePortException {
+    private void verifyServer(Scanner in, PrintWriter out) throws SamePortException, TimeoutException {
         out.println(agentIdentity);
-        String response = in.nextLine();
+        String response = ThreadUtils.receiveResponseWithTimeOut(in);
         if (NOT_OK.equals(response)) {
-            //outputWriter.print("A kliens el lett utasitva!");
             throw new SamePortException();
         } else {
             outputWriter.print("A kliens sikeresen csatlakozott!");
@@ -118,7 +110,7 @@ public class AgentClient extends Thread {
     }
 
     private void sendSecret(PrintWriter out) {
-        String randomSecret = agent.getRandomSecret().getSecret();
+        String randomSecret = agent.getRandomSecret().getSecretWord();
         outputWriter.print("Random titok küldése a szervernek: %s.", randomSecret);
         out.println(randomSecret);
     }
@@ -127,7 +119,7 @@ public class AgentClient extends Thread {
         String randomSecretFromServer = in.nextLine();
         outputWriter.print("Titok fogadva a szervertől: %s.", randomSecretFromServer);
         agent.addSecret(randomSecretFromServer);
-        outputWriter.print("Jelenlegi titkok:%s", agent.getSecrets());
+        outputWriter.print("Jelenlegi titkok:%s", agent.getSecretRepository());
     }
 
     private void sendOkSignal(PrintWriter out) {
@@ -142,7 +134,7 @@ public class AgentClient extends Thread {
 
         int randomOtherAgencyAgentNumber = sendAgentNumberAnswer(out, alias);
 
-        KnownAgent knownAgent = knownAgents.getKnownAgent(alias);
+        KnownAgent knownAgent = knownAgentRepository.getKnownAgent(alias);
         try {
             String response = ThreadUtils.receiveResponseWithTimeOut(in, 500);
             knownAgent.setNumber(randomOtherAgencyAgentNumber);
@@ -157,7 +149,7 @@ public class AgentClient extends Thread {
     }
 
     private int sendAgentNumberAnswer(PrintWriter out, String alias) {
-        int randomOtherAgencyAgentNumber = knownAgents.getRandomOtherAgencyAgentNumber(alias);
+        int randomOtherAgencyAgentNumber = knownAgentRepository.getRandomOtherAgencyAgentNumber(alias);
         out.println(randomOtherAgencyAgentNumber);
         outputWriter.print("Ügynök szám tipp küldése: %s", randomOtherAgencyAgentNumber);
         return randomOtherAgencyAgentNumber;
@@ -165,7 +157,7 @@ public class AgentClient extends Thread {
 
     private void saveAgentToKnownAgents(String alias, Agency agency) {
         outputWriter.print("Ügynök mentése ismert ügynökök közé: Ügynökség - %s, Álnév - %s", agency, alias);
-        knownAgents.putAgentToKnownAgents(alias, agency);
+        knownAgentRepository.putAgentToKnownAgents(alias, agency);
     }
 
     private boolean receivedAcknowledgement(Scanner in) {
@@ -181,7 +173,7 @@ public class AgentClient extends Thread {
     }
 
     private Agency getAgencyBasedOnAlias(String alias) {
-        KnownAgent knownAgent = knownAgents.getKnownAgent(alias);
+        KnownAgent knownAgent = knownAgentRepository.getKnownAgent(alias);
         if (knownAgent != null) {
             Agency knownAgentAgency = knownAgent.getAgency();
             outputWriter.print("Kapott álnév az %s ügynökséghez tartozik.", knownAgentAgency);
@@ -208,8 +200,12 @@ public class AgentClient extends Thread {
         return alias;
     }
 
-    public void addOtherAgencySecret(KnownAgent knownAgent, String response) {
+    private void addOtherAgencySecret(KnownAgent knownAgent, String response) {
         otherAgencySecrets.add(response);
         application.notifyAboutAcquiredSecretsOfOtherAgency(agent.getName(), knownAgent.getAgency(), otherAgencySecrets);
+    }
+
+    public List<String> getOtherAgencySecrets() {
+        return otherAgencySecrets;
     }
 }

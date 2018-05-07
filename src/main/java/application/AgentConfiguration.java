@@ -2,14 +2,14 @@ package application;
 
 public class AgentConfiguration {
 
-    private final int lowerPortBoundary = 20000;
-    private final int upperPortBoundary = 20005;
+    public static final int LOWER_PORT_BOUNDARY = 20000;
+    public static final int UPPER_PORT_BOUNDARY = 20005;
     private final int numberOfFirstAgencyMembers;
     private final int numberOfSecondAgencyMembers;
     private final int lowerBoundaryOfWait;
     private final int upperBoundaryOfWait;
 
-    public AgentConfiguration(int numberOfFirstAgencyMembers, int numberOfSecondAgencyMembers, int lowerBoundaryOfWait, int upperBoundaryOfWait) {
+    AgentConfiguration(int numberOfFirstAgencyMembers, int numberOfSecondAgencyMembers, int lowerBoundaryOfWait, int upperBoundaryOfWait) {
         this.numberOfFirstAgencyMembers = numberOfFirstAgencyMembers;
         this.numberOfSecondAgencyMembers = numberOfSecondAgencyMembers;
         this.lowerBoundaryOfWait = lowerBoundaryOfWait;
@@ -30,14 +30,6 @@ public class AgentConfiguration {
 
     public int getUpperBoundaryOfWait() {
         return upperBoundaryOfWait;
-    }
-
-    public int getLowerPortBoundary() {
-        return lowerPortBoundary;
-    }
-
-    public int getUpperPortBoundary() {
-        return upperPortBoundary;
     }
 
     @Override

@@ -18,7 +18,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 
 import static application.constant.MessageConstants.NOT_OK;
 import static application.constant.MessageConstants.OK;
@@ -29,8 +28,7 @@ public class AgentServer extends Thread {
     private final Agent agent;
     private final AgentConfiguration agentConfiguration;
     private final UUID agentIdentity;
-    private volatile Integer currentPort;
-    private final Object portLock = new Object();
+
 
     public AgentServer(Agent agent, AgentConfiguration agentConfiguration, UUID agentIdentity) {
         this.agent = agent;
@@ -42,38 +40,31 @@ public class AgentServer extends Thread {
     @Override
     public void run() {
         while (!isInterrupted()) {
-            ServerSocket serverSocket = openServerSocket();
             try {
-                acceptRequest(serverSocket);
+                handleClient();
             } catch (AllSecretsExposedException e) {
                 outputWriter.print("Az ügynök le lett tartóztatva, minden általa ismert titkot elárult.");
                 interrupt();
-            } finally {
-                try {
-                    serverSocket.close();
-                } catch (IOException e) {
-                }
             }
         }
         outputWriter.print("Ügynök szerver leáll.");
     }
 
 
-    private void acceptRequest(ServerSocket serverSocket) throws AllSecretsExposedException {
-        try {
-            Socket clientSocket = serverSocket.accept();
-            handleClient(clientSocket);
-            serverSocket.close();
-        } catch (IOException e) {
-            try {
-                serverSocket.close();
-            } catch (IOException ignored) {
-            }
+    private void handleClient() throws AllSecretsExposedException {
+        Integer currentPort = RandomUtils.generatePort(AgentConfiguration.LOWER_PORT_BOUNDARY, AgentConfiguration.UPPER_PORT_BOUNDARY);
+        try (ServerSocket serverSocket = new ServerSocket(currentPort)) {
+            serverSocket.setSoTimeout(agentConfiguration.getUpperBoundaryOfWait());
+
+            acceptClient(serverSocket);
+        } catch (IOException ignored) {
+            outputWriter.print("Nem sikerült portot nyitni.");
         }
     }
 
-    private void handleClient(Socket clientSocket) throws AllSecretsExposedException {
-        try (Scanner in = new Scanner(new InputStreamReader(clientSocket.getInputStream()));
+    private void acceptClient(ServerSocket serverSocket) throws AllSecretsExposedException, IOException {
+        try (Socket clientSocket = serverSocket.accept();
+             Scanner in = new Scanner(new InputStreamReader(clientSocket.getInputStream()));
              PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
             verifyClient(in, out);
@@ -95,28 +86,27 @@ public class AgentServer extends Thread {
                 handleDifferentAgency(in, out);
             }
 
-        } catch (IOException | SamePortException | BadAgentNumberGuessException e) {
-
+        } catch (SamePortException ignored) {
+            outputWriter.print("A kliens ugyanaz az ügynök mint a szerver! A kapcsolat bontásra kerül.");
+        } catch (BadAgentNumberGuessException e) {
+            outputWriter.print("Helytelen ügynök szám tipp: %s. A kapcsolat bontásra kerül!", e.getAgentNumberGuess());
         }
-
-
     }
 
     private void handleDifferentAgency(Scanner in, PrintWriter out) throws BadAgentNumberGuessException, AllSecretsExposedException {
         int agentNumberGuess = receiveAgentNumberGuess(in);
         if (agent.getNumber() != agentNumberGuess) {
-            outputWriter.print("Helytelen ügynök szám tipp: %s. A kapcsolat bontásra kerül!", agentNumberGuess);
-            throw new BadAgentNumberGuessException();
+            throw new BadAgentNumberGuessException(agentNumberGuess);
         } else {
             sendRandomSecret(out);
         }
     }
 
     private void sendRandomSecret(PrintWriter out) throws AllSecretsExposedException {
-        Secret randomNotExposedSecret = agent.getSecrets().getRandomNotExposedSecret();
-        out.println(randomNotExposedSecret.getSecret());
-        outputWriter.print("Random titok küldése: %s", randomNotExposedSecret.getSecret());
-        if (agent.getSecrets().isAllSecretsExposed()) {
+        Secret randomNotExposedSecret = agent.getSecretRepository().getRandomNotExposedSecret();
+        out.println(randomNotExposedSecret.getSecretWord());
+        outputWriter.print("Random titok küldése: %s", randomNotExposedSecret.getSecretWord());
+        if (agent.getSecretRepository().isAllSecretsExposed()) {
             throw new AllSecretsExposedException();
         }
     }
@@ -132,7 +122,6 @@ public class AgentServer extends Thread {
             outputWriter.print("Egy  kliens sikeresen csatlakozott!");
         } else {
             out.println(NOT_OK);
-            //outputWriter.print("A csatlakozott kliens elutastitva mivel megegyezik a szerverrel!");
             throw new SamePortException();
         }
     }
@@ -147,11 +136,11 @@ public class AgentServer extends Thread {
         String randomSecretFromClient = in.nextLine();
         outputWriter.print("Titok fogadva a klienstől: %s.", randomSecretFromClient);
         agent.addSecret(randomSecretFromClient);
-        outputWriter.print("Jelenlegi titkok:%s", agent.getSecrets());
+        outputWriter.print("Jelenlegi titkok:%s", agent.getSecretRepository());
     }
 
     private void sendSecret(PrintWriter out) {
-        String randomSecret = agent.getRandomSecret().getSecret();
+        String randomSecret = agent.getRandomSecret().getSecretWord();
         outputWriter.print("Random titok küldése a kliensnek: %s.", randomSecret);
         out.println(randomSecret);
     }
@@ -186,28 +175,5 @@ public class AgentServer extends Thread {
         out.println(randomAlias);
     }
 
-    private ServerSocket openServerSocket() {
-        synchronized (portLock) {
-            currentPort = null;
-            ServerSocket serverSocket = null;
-            while (getCurrentPort() == null) {
-                try {
-                    currentPort = RandomUtils.generatePort(agentConfiguration.getLowerPortBoundary(), agentConfiguration.getUpperPortBoundary());
-                    serverSocket = new ServerSocket(getCurrentPort());
-                    serverSocket.setSoTimeout(agentConfiguration.getUpperBoundaryOfWait());
-                } catch (IOException e) {
-                    currentPort = null;
-                }
-            }
-            return serverSocket;
-        }
-    }
-
-
-    public synchronized Integer getCurrentPort() {
-        synchronized (portLock) {
-            return currentPort;
-        }
-    }
 
 }
